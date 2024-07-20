@@ -186,14 +186,39 @@ function App() {
           </Button>
         </Form>
 
-        <Button
-          variant="destructive"
-          type="button"
-          onPress={() => updateAlarms([])}
-          className="mt-2"
-        >
-          Clear alarms
-        </Button>
+        <DialogTrigger>
+          <Button variant="destructive" type="button" className="mt-2">
+            Clear alarms
+          </Button>
+          {(close) => (
+            <Dialog>
+              <Heading>Delete All Alarms</Heading>
+              <Divider />
+              <Content>
+                <Text>Are you sure you want to delete all alarms?</Text>
+              </Content>
+              <ButtonGroup>
+                <Button
+                  variant="secondary"
+                  onPress={close}
+                  className="mr-4"
+                  autoFocus
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onPress={() => {
+                    updateAlarms([]);
+                    close();
+                  }}
+                >
+                  Confirm
+                </Button>
+              </ButtonGroup>
+            </Dialog>
+          )}
+        </DialogTrigger>
 
         <ul className="mt-3 flex flex-wrap items-start gap-3 justify-items-stretch justify-normal">
           {alarms.map((alarm, i) => (
@@ -225,6 +250,7 @@ function App() {
                           variant="secondary"
                           onPress={close}
                           className="mr-4"
+                          autoFocus
                         >
                           Cancel
                         </Button>
@@ -234,7 +260,6 @@ function App() {
                             updateAlarms(alarms.filter((_, j) => i !== j));
                             close();
                           }}
-                          autoFocus
                         >
                           Confirm
                         </Button>
