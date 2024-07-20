@@ -1,4 +1,4 @@
-import { LegacyRef, useEffect, useRef, useState } from "react";
+import { LegacyRef, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "./components";
 import {
   Provider,
@@ -9,12 +9,14 @@ import {
   ActionGroup,
   Form,
   Item,
+  Badge,
 } from "@adobe/react-spectrum";
 import { Label } from "@react-spectrum/label";
 import { DateValue, Selection, TimeValue } from "react-aria-components";
 import { parseDate, parseTime } from "@internationalized/date";
-import clsx from "clsx";
 import { DOMRefValue } from "@react-types/shared";
+import clsx from "clsx";
+import { Cross, X } from "lucide-react";
 
 const allWarnings = [
   "5m",
@@ -77,9 +79,9 @@ function App() {
       ),
     ),
   );
-  const [name, setName] = useState<string | undefined>();
-  const [date, setDate] = useState<DateValue | undefined>();
-  const [time, setTime] = useState<TimeValue | undefined>();
+  const [name, setName] = useState<string>("");
+  const [date, setDate] = useState<DateValue | null>(null);
+  const [time, setTime] = useState<TimeValue | null>(null);
   const [warnings, setWarnings] = useState<Selection>(new Set(["5m"]));
 
   const updateAlarms = (newAlarms: Alarm[]) => {
@@ -98,22 +100,19 @@ function App() {
     );
   };
 
-  const resetForm = () => {
-    setName(undefined);
-    setDate(undefined);
-    setTime(undefined);
+  const resetForm = useCallback(() => {
+    setName("");
+    setDate(null);
+    setTime(null);
     setWarnings(new Set(["5m"]));
-  };
+  }, [setName, setDate, setTime, setWarnings]);
 
   const createAlarm = (e: React.FormEvent<HTMLFormElement>) => {
-    // Prevent default browser page refresh.
     e.preventDefault();
 
-    if (name === undefined || date === undefined || time === undefined) {
-      alert("Please fill out all fields.");
-    } else {
+    if (date !== null && time !== null) {
       updateAlarms([
-        { name: name, date: date, time: time, warnings: warnings },
+        { name: name ?? "Alarm", date: date, time: time, warnings: warnings },
         ...alarms,
       ]);
       resetForm();
@@ -137,28 +136,30 @@ function App() {
   }, [providerRef]);
 
   return (
-    <Provider ref={providerRef} theme={defaultTheme} height="100vh">
-      <div className="flex flex-col w-4/5 my-0 mx-auto">
+    <Provider ref={providerRef} theme={defaultTheme}>
+      <div className="flex flex-col w-4/5 my-4 mx-auto">
         <h1 className="text-3xl mb-3">Alarms</h1>
 
-        <Form onSubmit={createAlarm}>
+        <Form validationBehavior="native" onSubmit={createAlarm}>
           <TextField
             label="Name"
             name="name"
-            isRequired
             onChange={(v) => setName(v)}
+            value={name}
           />
           <DatePicker
             label="Date"
             name="date"
             isRequired
             onChange={(v) => setDate(v)}
+            value={date}
           />
           <TimeField
             label="Time"
             name="time"
             isRequired
             onChange={(v) => setTime(v)}
+            value={time}
           />
 
           <Label id="warnings-label">Warnings</Label>
@@ -187,7 +188,7 @@ function App() {
           Clear alarms
         </Button>
 
-        <ul className="mt-3 flex space-x-3 space-y-2 justify-start">
+        <ul className="mt-3 flex flex-wrap items-start gap-3 justify-items-stretch justify-normal">
           {alarms.map((alarm, i) => (
             <li
               key={i}
@@ -195,15 +196,25 @@ function App() {
                 "outline outline-blue-600 dark:outline-blue-500 forced-colors:outline-[Highlight]",
                 "outline-offset-2 group items-center bg-white dark:bg-zinc-900 forced-colors:bg-[Field]",
                 "border-2 rounded-lg border-gray-300 dark:border-zinc-500",
-                "forced-colors:border-[ButtonBorder] outline-0 block w-fit px-2 py-1.5",
+                "forced-colors:border-[ButtonBorder] outline-0 w-fit p-2",
                 "text-sm text-gray-500 dark:text-zinc-400 font-medium cursor-default",
+                "flex flex-col flex-wrap gap-2 items-start",
               )}
             >
-              <h2 className="text-gray-300">{alarm.name}</h2>
-              <p>
-                {alarm.date.toString()} {alarm.time.toString()}
-              </p>
-              <p>Warnings: {Array.from(alarm.warnings).join(", ")}</p>
+              <div className="flex justify-between w-full align-baseline">
+                <h2 className="dark:text-white text-gray-900 pt-3">
+                  {alarm.name}
+                </h2>
+                <button className="-mr-1 -mt-4">
+                  <X size="1rem" />
+                </button>
+              </div>
+              <div>{alarm.date.toString() + " " + alarm.time.toString()}</div>
+              <div className="flex space-x-2 self-start">
+                {Array.from(alarm.warnings).map((warning) => (
+                  <Badge variant="neutral">{warning}</Badge>
+                ))}
+              </div>
             </li>
           ))}
         </ul>
