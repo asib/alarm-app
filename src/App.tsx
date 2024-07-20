@@ -10,6 +10,13 @@ import {
   Form,
   Item,
   Badge,
+  DialogTrigger,
+  Dialog,
+  Heading,
+  Divider,
+  Content,
+  Text,
+  ButtonGroup,
 } from "@adobe/react-spectrum";
 import { Label } from "@react-spectrum/label";
 import { DateValue, Selection, TimeValue } from "react-aria-components";
@@ -201,15 +208,49 @@ function App() {
                 "flex flex-col flex-wrap gap-2 items-start",
               )}
             >
-              <div className="flex justify-between w-full align-baseline">
-                <h2 className="dark:text-white text-gray-900 pt-3">
-                  {alarm.name}
-                </h2>
-                <button className="-mr-1 -mt-4">
-                  <X size="1rem" />
-                </button>
+              <div className="relative w-full">
+                <DialogTrigger>
+                  <Button variant="icon" className="absolute top-0 right-0 p-0">
+                    <X size="1rem" />
+                  </Button>
+                  {(close) => (
+                    <Dialog>
+                      <Heading>Delete Alarm</Heading>
+                      <Divider />
+                      <Content>
+                        <Text>Are you sure you want to delete this alarm?</Text>
+                      </Content>
+                      <ButtonGroup>
+                        <Button
+                          variant="secondary"
+                          onPress={close}
+                          className="mr-4"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="primary"
+                          onPress={() => {
+                            updateAlarms(alarms.filter((_, j) => i !== j));
+                            close();
+                          }}
+                          autoFocus
+                        >
+                          Confirm
+                        </Button>
+                      </ButtonGroup>
+                    </Dialog>
+                  )}
+                </DialogTrigger>
               </div>
-              <div>{alarm.date.toString() + " " + alarm.time.toString()}</div>
+
+              <h2 className="dark:text-white text-gray-900 pt-3 self-start">
+                {alarm.name}
+              </h2>
+
+              <div className="self-start">
+                {alarm.date.toString() + " " + alarm.time.toString()}
+              </div>
               <div className="flex space-x-2 self-start">
                 {Array.from(alarm.warnings).map((warning) => (
                   <Badge variant="neutral">{warning}</Badge>
