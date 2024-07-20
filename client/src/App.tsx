@@ -112,7 +112,7 @@ function App() {
     setWarnings(new Set(["5m"]));
   }, [setName, setDate, setTime, setWarnings]);
 
-  const createAlarm = (e: React.FormEvent<HTMLFormElement>) => {
+  const createAlarm = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (date !== null && time !== null) {
@@ -146,6 +146,14 @@ function App() {
         <PWABadge />
 
         <h1 className="text-3xl mb-3">Alarms</h1>
+        <Button
+          variant="secondary"
+          onPress={async () => {
+            await Notification.requestPermission();
+          }}
+        >
+          Subscribe
+        </Button>
 
         <Form validationBehavior="native" onSubmit={createAlarm}>
           <TextField

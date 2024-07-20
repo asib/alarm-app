@@ -97,10 +97,11 @@ function PWABadge() {
 
               console.log("Adding push event listener");
               registration.addEventListener("push", (event) => {
-                const payload = event.data?.text() ?? "no payload";
+                const payload = (event as any).data?.text() ?? "no payload";
+                console.log(`payload: ${JSON.stringify(event)}`);
+
                 if (payload === "heartbeat") {
-                  console.log("Heartbeat received");
-                  event.waitUntil(checkAlarms(loadAlarms()));
+                  (event as any).waitUntil(checkAlarms(loadAlarms()));
                 }
               });
             });
