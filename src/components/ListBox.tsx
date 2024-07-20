@@ -1,5 +1,4 @@
 import { Check } from "lucide-react";
-import React from "react";
 import {
   ListBox as AriaListBox,
   ListBoxItem as AriaListBoxItem,

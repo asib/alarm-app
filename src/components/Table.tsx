@@ -1,5 +1,4 @@
 import { ArrowUp } from 'lucide-react';
-import React from 'react';
 import {
   Cell as AriaCell,
   Column as AriaColumn,

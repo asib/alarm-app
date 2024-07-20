@@ -1,5 +1,4 @@
 import { ChevronDown } from 'lucide-react';
-import React from 'react';
 import {
   ComboBox as AriaComboBox,
   ComboBoxProps as AriaComboBoxProps,

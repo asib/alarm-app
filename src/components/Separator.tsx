@@ -1,4 +1,3 @@
-import React from 'react';
 import { Separator as RACSeparator, SeparatorProps } from 'react-aria-components';
 import { tv } from 'tailwind-variants';
 

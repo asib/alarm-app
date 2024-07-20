@@ -1,5 +1,4 @@
 import { ChevronDown } from 'lucide-react';
-import React from 'react';
 import {
   Select as AriaSelect,
   SelectProps as AriaSelectProps,
