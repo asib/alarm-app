@@ -64,24 +64,26 @@ function sortAlarms(alarms: Alarm[]) {
   });
 }
 
-function App() {
-  const [alarms, setAlarms] = useState<Alarm[]>(() =>
-    sortAlarms(
-      (
-        JSON.parse(localStorage.getItem("alarms") || "[]") as Array<{
-          name: string;
-          date: string;
-          time: string;
-          warnings: string[];
-        }>
-      ).map(({ name: name, date: date, time: time, warnings: warnings }) => ({
-        name,
-        date: parseDate(date),
-        time: parseTime(time),
-        warnings: new Set(warnings),
-      })),
-    ),
+export function loadAlarms(): Alarm[] {
+  return sortAlarms(
+    (
+      JSON.parse(localStorage.getItem("alarms") || "[]") as Array<{
+        name: string;
+        date: string;
+        time: string;
+        warnings: string[];
+      }>
+    ).map(({ name: name, date: date, time: time, warnings: warnings }) => ({
+      name,
+      date: parseDate(date),
+      time: parseTime(time),
+      warnings: new Set(warnings),
+    })),
   );
+}
+
+function App() {
+  const [alarms, setAlarms] = useState<Alarm[]>(() => loadAlarms());
   const [name, setName] = useState<string>("");
   const [date, setDate] = useState<DateValue | null>(null);
   const [time, setTime] = useState<TimeValue | null>(null);
@@ -141,7 +143,7 @@ function App() {
   return (
     <Provider ref={providerRef} theme={defaultTheme}>
       <div className="flex flex-col w-4/5 my-4 mx-auto">
-        <PWABadge alarms={alarms} />
+        <PWABadge />
 
         <h1 className="text-3xl mb-3">Alarms</h1>
 

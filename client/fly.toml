@@ -6,8 +6,6 @@
 app = 'alarm-pwa-react'
 primary_region = 'mad'
 
-[build]
-
 [http_service]
   internal_port = 8000
   force_https = true

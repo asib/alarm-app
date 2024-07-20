@@ -1,136 +1,24 @@
 import "./PWABadge.css";
 
 import { useRegisterSW } from "virtual:pwa-register/react";
-import { Alarm } from "./App";
+import { Alarm, loadAlarms } from "./App";
 
-interface ServiceWorkerProps {
-  alarms: Alarm[];
-}
+// This function is needed because Chrome doesn't accept a base64 encoded string
+// as value for applicationServerKey in pushManager.subscribe yet
+// https://bugs.chromium.org/p/chromium/issues/detail?id=802280
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, "+")
+    .replace(/_/g, "/");
 
-function PWABadge({ alarms }: ServiceWorkerProps) {
-  // check for updates every minute
-  const period = 1000;
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
 
-  const {
-    offlineReady: [offlineReady, setOfflineReady],
-    needRefresh: [needRefresh, setNeedRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({
-    onRegisteredSW(serviceWorkerUrl, registration) {
-      if (period <= 0) return;
-
-      Notification.requestPermission().then((permission) => {
-        if (permission === "granted") {
-          navigator.permissions
-            .query({
-              name: "periodic-background-sync",
-            })
-            .then((status) => {
-              console.log(status);
-              if (status.state === "granted") {
-                registration?.periodicSync
-                  .register("alarm-check", {
-                    // An interval of one second
-                    minInterval: 1000,
-                  })
-                  .then((x) => {
-                    console.log(`registering handler: ${x}`);
-                    self.addEventListener("periodicsync", (event) => {
-                      console.log(`got event: ${event}`);
-                      if (event.tag === "alarm-check") {
-                        event.waitUntil(checkAlarms(alarms));
-                      }
-                    });
-                  })
-                  .catch((e) => {
-                    console.log(`failed to get periodic sync permission: ${e}`);
-                  });
-              }
-            });
-        }
-      });
-
-      registration;
-
-      // if (registration?.active?.state === "activated") {
-      //   registerPeriodicSync(period, serviceWorkerUrl, registration, alarms);
-      // } else if (registration?.installing) {
-      //   registration.installing.addEventListener("statechange", (e) => {
-      //     const serviceWorker = e.target as ServiceWorker;
-      //     if (serviceWorker.state === "activated")
-      //       registerPeriodicSync(
-      //         period,
-      //         serviceWorkerUrl,
-      //         registration,
-      //         alarms,
-      //       );
-      //   });
-      // }
-    },
-  });
-
-  console.log(offlineReady, needRefresh);
-
-  function close() {
-    setOfflineReady(false);
-    setNeedRefresh(false);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
   }
-
-  return (
-    <div className="PWABadge" role="alert" aria-labelledby="toast-message">
-      {(offlineReady || needRefresh) && (
-        <div className="PWABadge-toast">
-          <div className="PWABadge-message">
-            {offlineReady ? (
-              <span id="toast-message">App ready to work offline</span>
-            ) : (
-              <span id="toast-message">
-                New content available, click on reload button to update.
-              </span>
-            )}
-          </div>
-          <div className="PWABadge-buttons">
-            {needRefresh && (
-              <button
-                className="PWABadge-toast-button"
-                onClick={() => updateServiceWorker(true)}
-              >
-                Reload
-              </button>
-            )}
-            <button className="PWABadge-toast-button" onClick={() => close()}>
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default PWABadge;
-
-async function registerPeriodicSync(
-  period: number,
-  serviceWorkerUrl: string,
-  registration: ServiceWorkerRegistration,
-  alarms: Alarm[],
-) {
-  if (period <= 0) return;
-
-  setInterval(async () => {
-    if ("onLine" in navigator && !navigator.onLine) return;
-
-    const resp = await fetch(serviceWorkerUrl, {
-      cache: "no-store",
-      headers: {
-        cache: "no-store",
-        "cache-control": "no-cache",
-      },
-    });
-
-    if (resp?.status === 200) await registration.update();
-  }, period);
+  return outputArray;
 }
 
 async function checkAlarms(alarms: Alarm[]) {
@@ -152,3 +40,141 @@ async function checkAlarms(alarms: Alarm[]) {
     }
   });
 }
+
+function PWABadge() {
+  // check for updates every minute
+  const period = 1000;
+
+  const {
+    offlineReady: [offlineReady, _setOfflineReady],
+    needRefresh: [needRefresh, _setNeedRefresh],
+  } = useRegisterSW({
+    onRegisteredSW(_serviceWorkerUrl, registration) {
+      if (!registration) return;
+
+      Notification.requestPermission().then((permission) => {
+        if (permission === "granted") {
+          registration.pushManager
+            .getSubscription()
+            .then(async function (subscription) {
+              // If a subscription was found, return it.
+              if (subscription) {
+                return subscription;
+              }
+
+              // Get the server's public key
+              const response = await fetch("./vapidPublicKey");
+              const vapidPublicKey = await response.text();
+              // Chrome doesn't accept the base64-encoded (string) vapidPublicKey yet
+              // urlBase64ToUint8Array() is defined in /tools.js
+              const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+
+              // Otherwise, subscribe the user (userVisibleOnly allows to specify that we don't plan to
+              // send notifications that don't have a visible effect for the user).
+              return await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: convertedVapidKey,
+              });
+            })
+            .then(async function (subscription) {
+              // Send the subscription details to the server using the Fetch API.
+              await fetch("https://server-wild-wave-7018.fly.dev/register", {
+                method: "post",
+                headers: {
+                  "Content-type": "application/json",
+                },
+                body: JSON.stringify({
+                  subscription: subscription,
+                }),
+              });
+
+              registration.addEventListener("push", (event) => {
+                const payload = event.data?.text() ?? "no payload";
+                if (payload === "heartbeat") {
+                  event.waitUntil(checkAlarms(loadAlarms()));
+                }
+              });
+            });
+        }
+      });
+      // if (registration?.active?.state === "activated") {
+      //   registerPeriodicSync(period, serviceWorkerUrl, registration, alarms);
+      // } else if (registration?.installing) {
+      //   registration.installing.addEventListener("statechange", (e) => {
+      //     const serviceWorker = e.target as ServiceWorker;
+      //     if (serviceWorker.state === "activated")
+      //       registerPeriodicSync(
+      //         period,
+      //         serviceWorkerUrl,
+      //         registration,
+      //         alarms,
+      //       );
+      //   });
+      // }
+    },
+  });
+
+  console.log(offlineReady, needRefresh);
+
+  // function close() {
+  //   setOfflineReady(false);
+  //   setNeedRefresh(false);
+  // }
+
+  return null;
+  // return (
+  //   <div className="PWABadge" role="alert" aria-labelledby="toast-message">
+  //     {(offlineReady || needRefresh) && (
+  //       <div className="PWABadge-toast">
+  //         <div className="PWABadge-message">
+  //           {offlineReady ? (
+  //             <span id="toast-message">App ready to work offline</span>
+  //           ) : (
+  //             <span id="toast-message">
+  //               New content available, click on reload button to update.
+  //             </span>
+  //           )}
+  //         </div>
+  //         <div className="PWABadge-buttons">
+  //           {needRefresh && (
+  //             <button
+  //               className="PWABadge-toast-button"
+  //               onClick={() => updateServiceWorker(true)}
+  //             >
+  //               Reload
+  //             </button>
+  //           )}
+  //           <button className="PWABadge-toast-button" onClick={() => close()}>
+  //             Close
+  //           </button>
+  //         </div>
+  //       </div>
+  //     )}
+  //   </div>
+  // );
+}
+
+export default PWABadge;
+
+// async function registerPeriodicSync(
+//   period: number,
+//   serviceWorkerUrl: string,
+//   registration: ServiceWorkerRegistration,
+//   alarms: Alarm[],
+// ) {
+//   if (period <= 0) return;
+
+//   setInterval(async () => {
+//     if ("onLine" in navigator && !navigator.onLine) return;
+
+//     const resp = await fetch(serviceWorkerUrl, {
+//       cache: "no-store",
+//       headers: {
+//         cache: "no-store",
+//         "cache-control": "no-cache",
+//       },
+//     });
+
+//     if (resp?.status === 200) await registration.update();
+//   }, period);
+// }

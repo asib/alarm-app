@@ -1,0 +1,26 @@
+# fly.toml app configuration file generated for server-wild-wave-7018 on 2024-07-20T22:38:02+01:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'server-wild-wave-7018'
+primary_region = 'mad'
+
+[env]
+VAPID_PUBLIC_KEY = "BLCD3wwwl5MrLs-CqSaUtO1tiEidejuW4GOSP0Vh4cWCTtLqCCGyYhfNguic7cnrRtITS8ZlkstuQqLlljEpNbE"
+HOST = "https://alarm-pwa-server.fly.dev"
+PUSH_INTERVAL_SECONDS = "10"
+PORT = "3000"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+  processes = ['app']
+
+[[vm]]
+  memory = '256mb'
+  cpu_kind = 'shared'
+  cpus = 1
