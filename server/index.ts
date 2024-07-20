@@ -95,7 +95,8 @@ setInterval(
     )
       .all()
       .forEach(({ subscription: subscriptionJson }) => {
-        const subscription = JSON.parse(subscriptionJson);
+        const { subscription } = JSON.parse(subscriptionJson);
+        console.log(`sending heartbeat to ${subscriptionJson}}`);
         webPush
           .sendNotification(subscription, "heartbeat")
           .then(() => {
