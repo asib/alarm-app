@@ -28,11 +28,11 @@ const server = Bun.serve({
     if (req.method === "GET" && path === "/vapidPublicKey") {
       return resp(process.env.VAPID_PUBLIC_KEY!);
     } else if (req.method === "POST" && path === "/register") {
-      const data = await req.json();
+      const subscription = await req.text();
 
       const result = db.run(
         "INSERT INTO push_subscriptions (subscription) VALUES (?);",
-        [JSON.stringify(data.subscription)],
+        [subscription],
       );
 
       return resp("", { status: 201 });

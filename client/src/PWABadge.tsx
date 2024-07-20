@@ -58,7 +58,9 @@ function PWABadge() {
             .then(async function (subscription) {
               // If a subscription was found, return it.
               if (subscription) {
-                console.log(`Existing subscription found: ${subscription}`);
+                console.log(
+                  `Existing subscription found: ${JSON.stringify(subscription)}`,
+                );
                 return subscription;
               }
 
@@ -80,7 +82,9 @@ function PWABadge() {
             })
             .then(async function (subscription) {
               // Send the subscription details to the server using the Fetch API.
-              console.log(`Sending subscription to server: ${subscription}`);
+              console.log(
+                `Sending subscription to server: ${JSON.stringify(subscription)}`,
+              );
               await fetch(serverUrl + "/register", {
                 method: "post",
                 headers: {
