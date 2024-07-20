@@ -23,7 +23,7 @@ import { DateValue, Selection, TimeValue } from "react-aria-components";
 import { parseDate, parseTime } from "@internationalized/date";
 import { DOMRefValue } from "@react-types/shared";
 import clsx from "clsx";
-import { Cross, X } from "lucide-react";
+import { X } from "lucide-react";
 
 const allWarnings = [
   "5m",
