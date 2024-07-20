@@ -8,6 +8,17 @@ db.exec(`
   );
 `);
 
+const resp = (body: string, opts: object = {}): Response => {
+  return new Response(body, {
+    ...opts,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  });
+};
+
 const server = Bun.serve({
   async fetch(req) {
     const path = new URL(req.url).pathname;
@@ -15,10 +26,8 @@ const server = Bun.serve({
     console.log(req.method, path);
 
     if (req.method === "GET" && path === "/vapidPublicKey") {
-      return new Response(process.env.VAPID_PUBLIC_KEY);
-    }
-
-    if (req.method === "POST" && path === "/register") {
+      return resp(process.env.VAPID_PUBLIC_KEY!);
+    } else if (req.method === "POST" && path === "/register") {
       const data = await req.json();
 
       const result = db.run(
@@ -26,7 +35,10 @@ const server = Bun.serve({
         [JSON.stringify(data.subscription)],
       );
 
-      return new Response("", { status: 201 });
+      return resp("", { status: 201 });
+    } else {
+      // 404s
+      return resp("Page not found", { status: 404 });
     }
 
     // if (req.method === "POST" && path === "sendNotification") {
@@ -49,9 +61,6 @@ const server = Bun.serve({
     //       });
     //   }, data.delay * 1000);
     // }
-
-    // 404s
-    return new Response("Page not found", { status: 404 });
   },
 });
 

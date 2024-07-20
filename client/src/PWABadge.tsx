@@ -3,6 +3,8 @@ import "./PWABadge.css";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { Alarm, loadAlarms } from "./App";
 
+const serverUrl = "https://server-wild-wave-7018.fly.dev";
+
 // This function is needed because Chrome doesn't accept a base64 encoded string
 // as value for applicationServerKey in pushManager.subscribe yet
 // https://bugs.chromium.org/p/chromium/issues/detail?id=802280
@@ -42,9 +44,6 @@ async function checkAlarms(alarms: Alarm[]) {
 }
 
 function PWABadge() {
-  // check for updates every minute
-  const period = 1000;
-
   const {
     offlineReady: [offlineReady, _setOfflineReady],
     needRefresh: [needRefresh, _setNeedRefresh],
@@ -59,11 +58,13 @@ function PWABadge() {
             .then(async function (subscription) {
               // If a subscription was found, return it.
               if (subscription) {
+                console.log(`Existing subscription found: ${subscription}`);
                 return subscription;
               }
 
               // Get the server's public key
-              const response = await fetch("./vapidPublicKey");
+              console.log("Getting vapidPublicKey");
+              const response = await fetch(serverUrl + "/vapidPublicKey");
               const vapidPublicKey = await response.text();
               // Chrome doesn't accept the base64-encoded (string) vapidPublicKey yet
               // urlBase64ToUint8Array() is defined in /tools.js
@@ -71,6 +72,7 @@ function PWABadge() {
 
               // Otherwise, subscribe the user (userVisibleOnly allows to specify that we don't plan to
               // send notifications that don't have a visible effect for the user).
+              console.log("Creating subscription");
               return await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: convertedVapidKey,
@@ -78,7 +80,8 @@ function PWABadge() {
             })
             .then(async function (subscription) {
               // Send the subscription details to the server using the Fetch API.
-              await fetch("https://server-wild-wave-7018.fly.dev/register", {
+              console.log(`Sending subscription to server: ${subscription}`);
+              await fetch(serverUrl + "/register", {
                 method: "post",
                 headers: {
                   "Content-type": "application/json",
@@ -88,9 +91,11 @@ function PWABadge() {
                 }),
               });
 
+              console.log("Adding push event listener");
               registration.addEventListener("push", (event) => {
                 const payload = event.data?.text() ?? "no payload";
                 if (payload === "heartbeat") {
+                  console.log("Heartbeat received");
                   event.waitUntil(checkAlarms(loadAlarms()));
                 }
               });
