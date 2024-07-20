@@ -30,15 +30,14 @@ const server = Bun.serve({
     } else if (req.method === "POST" && path === "/register") {
       const subscription = await req.text();
 
-      const result = db.run(
-        "INSERT INTO push_subscriptions (subscription) VALUES (?);",
-        [subscription],
-      );
+      db.run("INSERT INTO push_subscriptions (subscription) VALUES (?);", [
+        subscription,
+      ]);
 
       return resp("", { status: 201 });
     } else {
       // 404s
-      return resp("Page not found", { status: 404 });
+      return resp("Page not found", { status: 200 });
     }
 
     // if (req.method === "POST" && path === "sendNotification") {
