@@ -24,6 +24,7 @@ import { parseDate, parseTime } from "@internationalized/date";
 import { DOMRefValue } from "@react-types/shared";
 import clsx from "clsx";
 import { X } from "lucide-react";
+import PWABadge from "./PWABadge";
 
 const allWarnings = [
   "5m",
@@ -48,7 +49,7 @@ const allWarnings = [
   "72h",
 ];
 
-interface Alarm {
+export interface Alarm {
   name: string;
   date: DateValue;
   time: TimeValue;
@@ -66,24 +67,19 @@ function sortAlarms(alarms: Alarm[]) {
 function App() {
   const [alarms, setAlarms] = useState<Alarm[]>(() =>
     sortAlarms(
-      JSON.parse(localStorage.getItem("alarms") || "[]").map(
-        ({
-          name: name,
-          date: date,
-          time: time,
-          warnings: warnings,
-        }: {
+      (
+        JSON.parse(localStorage.getItem("alarms") || "[]") as Array<{
           name: string;
           date: string;
           time: string;
           warnings: string[];
-        }) => ({
-          name,
-          date: parseDate(date),
-          time: parseTime(time),
-          warnings: new Set(warnings),
-        }),
-      ),
+        }>
+      ).map(({ name: name, date: date, time: time, warnings: warnings }) => ({
+        name,
+        date: parseDate(date),
+        time: parseTime(time),
+        warnings: new Set(warnings),
+      })),
     ),
   );
   const [name, setName] = useState<string>("");
@@ -145,6 +141,8 @@ function App() {
   return (
     <Provider ref={providerRef} theme={defaultTheme}>
       <div className="flex flex-col w-4/5 my-4 mx-auto">
+        <PWABadge alarms={alarms} />
+
         <h1 className="text-3xl mb-3">Alarms</h1>
 
         <Form validationBehavior="native" onSubmit={createAlarm}>
@@ -277,8 +275,10 @@ function App() {
                 {alarm.date.toString() + " " + alarm.time.toString()}
               </div>
               <div className="flex space-x-2 self-start">
-                {Array.from(alarm.warnings).map((warning) => (
-                  <Badge variant="neutral">{warning}</Badge>
+                {Array.from(alarm.warnings).map((warning, i) => (
+                  <Badge key={i} variant="neutral">
+                    {warning}
+                  </Badge>
                 ))}
               </div>
             </li>
