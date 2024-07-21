@@ -1,5 +1,5 @@
 import { LegacyRef, useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "./components";
+import { Button } from "./components/Button";
 import {
   Provider,
   defaultTheme,
@@ -20,11 +20,11 @@ import {
 } from "@adobe/react-spectrum";
 import { Label } from "@react-spectrum/label";
 import { DateValue, Selection, TimeValue } from "react-aria-components";
-import { parseDate, parseTime } from "@internationalized/date";
 import { DOMRefValue } from "@react-types/shared";
 import clsx from "clsx";
 import { X } from "lucide-react";
-import { useRegisterSW } from "virtual:pwa-register/react";
+import { get, set } from "idb-keyval";
+import { CalendarDate, Time } from "@internationalized/date";
 
 const allWarnings = [
   "5m",
@@ -64,72 +64,25 @@ function sortAlarms(alarms: Alarm[]) {
   });
 }
 
-export function loadAlarms(): Alarm[] {
+export async function loadAlarms(): Promise<Alarm[]> {
   return sortAlarms(
-    (
-      JSON.parse(localStorage.getItem("alarms") || "[]") as Array<{
-        name: string;
-        date: string;
-        time: string;
-        warnings: string[];
-      }>
-    ).map(({ name: name, date: date, time: time, warnings: warnings }) => ({
-      name,
-      date: parseDate(date),
-      time: parseTime(time),
-      warnings: new Set(warnings),
-    })),
+    ((await get<Alarm[]>("alarms")) ?? []).map(
+      ({ name: name, date: date, time: time, warnings: warnings }) => ({
+        name,
+        date: new CalendarDate(date.year, date.month, date.day),
+        time: new Time(time.hour, time.minute),
+        warnings: warnings as Selection,
+      }),
+    ),
   );
 }
 
-const serverUrl = "https://server-wild-wave-7018.fly.dev";
-
-// This function is needed because Chrome doesn't accept a base64 encoded string
-// as value for applicationServerKey in pushManager.subscribe yet
-// https://bugs.chromium.org/p/chromium/issues/detail?id=802280
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding)
-    .replace(/\-/g, "+")
-    .replace(/_/g, "/");
-
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
-async function checkAlarms(
-  alarms: Alarm[],
-  showNotification: (message: string) => Promise<void>,
-) {
-  for (const alarm of alarms) {
-    const now = new Date();
-    const alarmDateTime = new Date(
-      alarm.date.year,
-      alarm.date.month - 1,
-      alarm.date.day,
-      alarm.time.hour,
-      alarm.time.minute,
-    );
-    console.log(`Checking alarm now:${now}, alarm:${alarmDateTime}`);
-
-    if (now > alarmDateTime) {
-      console.log(
-        `Alarm "${alarm.name}" was supposed to go off at ${alarmDateTime.toTimeString()}, but it's already ${now.toTimeString()}`,
-      );
-      await showNotification(
-        `"${alarm.name}" at ${alarmDateTime.toTimeString()}`,
-      );
-    }
-  }
-}
-
 function App() {
-  const [alarms, setAlarms] = useState<Alarm[]>(() => loadAlarms());
+  const [alarms, setAlarms] = useState<Alarm[]>([]);
+  useEffect(() => {
+    loadAlarms().then((as) => setAlarms(as));
+  }, [setAlarms]);
+
   const [name, setName] = useState<string>("");
   const [date, setDate] = useState<DateValue | null>(null);
   const [time, setTime] = useState<TimeValue | null>(null);
@@ -138,17 +91,7 @@ function App() {
   const updateAlarms = (newAlarms: Alarm[]) => {
     const sortedAlarms = sortAlarms(newAlarms);
     setAlarms(sortedAlarms);
-    localStorage.setItem(
-      "alarms",
-      JSON.stringify(
-        sortedAlarms.map((a) => ({
-          ...a,
-          date: a.date.toString(),
-          time: a.time.toString(),
-          warnings: Array.from(a.warnings),
-        })),
-      ),
-    );
+    set("alarms", sortedAlarms);
   };
 
   const resetForm = useCallback(() => {
@@ -186,108 +129,13 @@ function App() {
     }
   }, [providerRef]);
 
-  const [registration, setRegistration] =
-    useState<ServiceWorkerRegistration | null>(null);
-
-  useRegisterSW({
-    onRegisteredSW(_serviceWorkerUrl, registration) {
-      if (!registration) return;
-
-      setRegistration(registration);
-    },
-  });
-
-  const setupNotifications = async () => {
-    if (registration === null) return;
-
-    Notification.requestPermission().then((permission) => {
-      if (permission === "granted") {
-        registration.pushManager
-          .getSubscription()
-          .then(async function (subscription) {
-            // If a subscription was found, return it.
-            if (subscription) {
-              console.log(
-                `Existing subscription found: ${JSON.stringify(subscription)}`,
-              );
-              return subscription;
-            }
-
-            // Get the server's public key
-            console.log("Getting vapidPublicKey");
-            const response = await fetch(serverUrl + "/vapidPublicKey");
-            const vapidPublicKey = await response.text();
-            // Chrome doesn't accept the base64-encoded (string) vapidPublicKey yet
-            // urlBase64ToUint8Array() is defined in /tools.js
-            const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
-
-            // Otherwise, subscribe the user (userVisibleOnly allows to specify that we don't plan to
-            // send notifications that don't have a visible effect for the user).
-            console.log("Creating subscription");
-            return await registration.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: convertedVapidKey,
-            });
-          })
-          .then(async function (subscription) {
-            // Send the subscription details to the server using the Fetch API.
-            console.log(
-              `Sending subscription to server: ${JSON.stringify(subscription)}`,
-            );
-            await fetch(serverUrl + "/register", {
-              method: "post",
-              headers: {
-                "Content-type": "application/json",
-              },
-              body: JSON.stringify({
-                subscription: subscription,
-              }),
-            });
-
-            const registerPushHandler = async () => {
-              console.log("Adding push event listener");
-              registration.active!.addEventListener("push", (event) => {
-                console.log(`payload: ${JSON.stringify(event)}`);
-                const payload = (event as any).data?.text() ?? "no payload";
-
-                if (payload === "heartbeat") {
-                  (event as any).waitUntil(
-                    checkAlarms(loadAlarms(), async (message) => {
-                      await registration.showNotification(message);
-                    }),
-                  );
-                }
-              });
-            };
-
-            if (registration?.active?.state === "activated") {
-              await registerPushHandler();
-            } else if (registration?.installing) {
-              registration.installing.addEventListener(
-                "statechange",
-                async (e) => {
-                  const serviceWorker = e.target as ServiceWorker;
-                  if (serviceWorker.state === "activated")
-                    await registerPushHandler();
-                },
-              );
-            }
-          });
-      }
-    });
-  };
-
-  setupNotifications();
-
   return (
     <Provider ref={providerRef} theme={defaultTheme}>
       <div className="flex flex-col w-4/5 my-4 mx-auto">
         <h1 className="text-3xl mb-3">Alarms</h1>
         <Button
           variant="secondary"
-          onPress={async () => {
-            await setupNotifications();
-          }}
+          onPress={async () => await Notification.requestPermission()}
         >
           Subscribe
         </Button>

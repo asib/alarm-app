@@ -8,7 +8,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      injectRegister: false,
+      injectRegister: "auto",
+
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "serviceWorker.ts",
 
       pwaAssets: {
         disabled: false,

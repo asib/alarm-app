@@ -10,19 +10,6 @@ export interface ButtonProps extends RACButtonProps {
   variant?: "primary" | "secondary" | "destructive" | "icon";
 }
 
-// color: var(--text-color);
-//   background: var(--button-background);
-//   border: 1px solid var(--border-color);
-//   border-radius: 4px;
-//   appearance: none;
-//   vertical-align: middle;
-//   font-size: 1rem;
-//   text-align: center;
-//   margin: 0;
-//   outline: none;
-//   padding: 6px 10px;
-//   text-decoration: none;
-
 const button = tv({
   extend: focusRing,
   base: "px-2 py-1 text-sm text-center transition rounded-md border border-black/10 dark:border-white/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] dark:shadow-none cursor-default",
