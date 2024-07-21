@@ -24,7 +24,7 @@ import { parseDate, parseTime } from "@internationalized/date";
 import { DOMRefValue } from "@react-types/shared";
 import clsx from "clsx";
 import { X } from "lucide-react";
-import PWABadge from "./PWABadge";
+import { useRegisterSW } from "virtual:pwa-register/react";
 
 const allWarnings = [
   "5m",
@@ -80,6 +80,52 @@ export function loadAlarms(): Alarm[] {
       warnings: new Set(warnings),
     })),
   );
+}
+
+const serverUrl = "https://server-wild-wave-7018.fly.dev";
+
+// This function is needed because Chrome doesn't accept a base64 encoded string
+// as value for applicationServerKey in pushManager.subscribe yet
+// https://bugs.chromium.org/p/chromium/issues/detail?id=802280
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, "+")
+    .replace(/_/g, "/");
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+async function checkAlarms(
+  alarms: Alarm[],
+  showNotification: (message: string) => Promise<void>,
+) {
+  for (const alarm of alarms) {
+    const now = new Date();
+    const alarmDateTime = new Date(
+      alarm.date.year,
+      alarm.date.month - 1,
+      alarm.date.day,
+      alarm.time.hour,
+      alarm.time.minute,
+    );
+    console.log(`Checking alarm now:${now}, alarm:${alarmDateTime}`);
+
+    if (now > alarmDateTime) {
+      console.log(
+        `Alarm "${alarm.name}" was supposed to go off at ${alarmDateTime.toTimeString()}, but it's already ${now.toTimeString()}`,
+      );
+      await showNotification(
+        `"${alarm.name}" at ${alarmDateTime.toTimeString()}`,
+      );
+    }
+  }
 }
 
 function App() {
@@ -140,16 +186,90 @@ function App() {
     }
   }, [providerRef]);
 
+  const [registration, setRegistration] =
+    useState<ServiceWorkerRegistration | null>(null);
+
+  useRegisterSW({
+    onRegisteredSW(_serviceWorkerUrl, registration) {
+      if (!registration) return;
+
+      setRegistration(registration);
+    },
+  });
+
+  const setupNotifications = async () => {
+    if (registration === null) return;
+
+    Notification.requestPermission().then((permission) => {
+      if (permission === "granted") {
+        registration.pushManager
+          .getSubscription()
+          .then(async function (subscription) {
+            // If a subscription was found, return it.
+            if (subscription) {
+              console.log(
+                `Existing subscription found: ${JSON.stringify(subscription)}`,
+              );
+              return subscription;
+            }
+
+            // Get the server's public key
+            console.log("Getting vapidPublicKey");
+            const response = await fetch(serverUrl + "/vapidPublicKey");
+            const vapidPublicKey = await response.text();
+            // Chrome doesn't accept the base64-encoded (string) vapidPublicKey yet
+            // urlBase64ToUint8Array() is defined in /tools.js
+            const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+
+            // Otherwise, subscribe the user (userVisibleOnly allows to specify that we don't plan to
+            // send notifications that don't have a visible effect for the user).
+            console.log("Creating subscription");
+            return await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: convertedVapidKey,
+            });
+          })
+          .then(async function (subscription) {
+            // Send the subscription details to the server using the Fetch API.
+            console.log(
+              `Sending subscription to server: ${JSON.stringify(subscription)}`,
+            );
+            await fetch(serverUrl + "/register", {
+              method: "post",
+              headers: {
+                "Content-type": "application/json",
+              },
+              body: JSON.stringify({
+                subscription: subscription,
+              }),
+            });
+
+            console.log("Adding push event listener");
+            registration.addEventListener("push", (event) => {
+              const payload = (event as any).data?.text() ?? "no payload";
+              console.log(`payload: ${JSON.stringify(event)}`);
+
+              if (payload === "heartbeat") {
+                (event as any).waitUntil(
+                  checkAlarms(loadAlarms(), async (message) => {
+                    await registration.showNotification(message);
+                  }),
+                );
+              }
+            });
+          });
+      }
+    });
+  };
+
   return (
     <Provider ref={providerRef} theme={defaultTheme}>
       <div className="flex flex-col w-4/5 my-4 mx-auto">
-        <PWABadge />
-
         <h1 className="text-3xl mb-3">Alarms</h1>
         <Button
           variant="secondary"
-          onPress={async () => {
-            await Notification.requestPermission();
+          onPress={() => {
+            setupNotifications();
           }}
         >
           Subscribe

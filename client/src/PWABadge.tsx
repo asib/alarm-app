@@ -108,8 +108,8 @@ function PWABadge() {
 
                 if (payload === "heartbeat") {
                   (event as any).waitUntil(
-                    checkAlarms(loadAlarms(), (message) => {
-                      registration.showNotification(message);
+                    checkAlarms(loadAlarms(), async (message) => {
+                      await registration.showNotification(message);
                     }),
                   );
                 }
