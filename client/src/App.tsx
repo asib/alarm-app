@@ -246,9 +246,9 @@ function App() {
 
             const registerPushHandler = async () => {
               console.log("Adding push event listener");
-              registration.active?.addEventListener("push", (event) => {
-                const payload = (event as any).data?.text() ?? "no payload";
+              registration.active!.addEventListener("push", (event) => {
                 console.log(`payload: ${JSON.stringify(event)}`);
+                const payload = (event as any).data?.text() ?? "no payload";
 
                 if (payload === "heartbeat") {
                   (event as any).waitUntil(
@@ -263,15 +263,21 @@ function App() {
             if (registration?.active?.state === "activated") {
               await registerPushHandler();
             } else if (registration?.installing) {
-              registration.installing.addEventListener("statechange", (e) => {
-                const serviceWorker = e.target as ServiceWorker;
-                if (serviceWorker.state === "activated") registerPushHandler();
-              });
+              registration.installing.addEventListener(
+                "statechange",
+                async (e) => {
+                  const serviceWorker = e.target as ServiceWorker;
+                  if (serviceWorker.state === "activated")
+                    await registerPushHandler();
+                },
+              );
             }
           });
       }
     });
   };
+
+  setupNotifications();
 
   return (
     <Provider ref={providerRef} theme={defaultTheme}>
@@ -279,8 +285,8 @@ function App() {
         <h1 className="text-3xl mb-3">Alarms</h1>
         <Button
           variant="secondary"
-          onPress={() => {
-            setupNotifications();
+          onPress={async () => {
+            await setupNotifications();
           }}
         >
           Subscribe

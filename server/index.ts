@@ -99,8 +99,8 @@ setInterval(
         console.log(`sending heartbeat to ${subscriptionJson}}`);
         webPush
           .sendNotification(subscription, "heartbeat")
-          .then(() => {
-            console.log("sent heartbeat");
+          .then((v) => {
+            console.log(`sent heartbeat: ${JSON.stringify(v)}`);
           })
           .catch((err) => {
             console.log(`failed to send heartbeat: ${err}`);
