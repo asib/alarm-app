@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      injectRegister: "auto",
+      injectRegister: false,
 
       strategies: "injectManifest",
       srcDir: "src",
@@ -23,13 +23,6 @@ export default defineConfig({
         name: "Alarmy",
         short_name: "Alarmy",
         description: "Powerful alarms",
-      },
-
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,png,ico}"],
-        cleanupOutdatedCaches: true,
-        clientsClaim: true,
-        swDest: "serviceWorker.js",
       },
 
       devOptions: {

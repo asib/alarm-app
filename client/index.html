@@ -5,6 +5,19 @@
   <meta charset="UTF-8" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    if ('serviceWorker' in navigator) {
+      console.log("Service worker is supported by browser.")
+      window.addEventListener('load', () => {
+        console.log("registering service worker.")
+        navigator.serviceWorker.register('/serviceWorker.js', {
+          scope: '/'
+        })
+      })
+    } else {
+      console.log("Service worker is not supported by browser.")
+    }
+  </script>
   <title>alarm-pwa-react + TS</title>
 </head>
 
