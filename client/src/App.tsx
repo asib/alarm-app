@@ -154,6 +154,15 @@ function App() {
         >
           Subscribe
         </Button>
+        <Button
+          className="mt-2"
+          variant="secondary"
+          onPress={() => {
+            window.location.reload();
+          }}
+        >
+          Refresh
+        </Button>
 
         <Form validationBehavior="native" onSubmit={createAlarm}>
           <TextField

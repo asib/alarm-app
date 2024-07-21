@@ -23,8 +23,11 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
-async function checkAlarms(alarms: Alarm[]) {
-  alarms.forEach((alarm) => {
+async function checkAlarms(
+  alarms: Alarm[],
+  showNotification: (message: string) => Promise<void>,
+) {
+  for (const alarm of alarms) {
     const now = new Date();
     const alarmDateTime = new Date(
       alarm.date.year,
@@ -39,8 +42,11 @@ async function checkAlarms(alarms: Alarm[]) {
       console.log(
         `Alarm "${alarm.name}" was supposed to go off at ${alarmDateTime.toTimeString()}, but it's already ${now.toTimeString()}`,
       );
+      await showNotification(
+        `"${alarm.name}" at ${alarmDateTime.toTimeString()}`,
+      );
     }
-  });
+  }
 }
 
 function PWABadge() {
@@ -101,7 +107,11 @@ function PWABadge() {
                 console.log(`payload: ${JSON.stringify(event)}`);
 
                 if (payload === "heartbeat") {
-                  (event as any).waitUntil(checkAlarms(loadAlarms()));
+                  (event as any).waitUntil(
+                    checkAlarms(loadAlarms(), (message) => {
+                      registration.showNotification(message);
+                    }),
+                  );
                 }
               });
             });
