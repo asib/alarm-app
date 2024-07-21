@@ -244,19 +244,30 @@ function App() {
               }),
             });
 
-            console.log("Adding push event listener");
-            registration.addEventListener("push", (event) => {
-              const payload = (event as any).data?.text() ?? "no payload";
-              console.log(`payload: ${JSON.stringify(event)}`);
+            const registerPushHandler = async () => {
+              console.log("Adding push event listener");
+              registration.active?.addEventListener("push", (event) => {
+                const payload = (event as any).data?.text() ?? "no payload";
+                console.log(`payload: ${JSON.stringify(event)}`);
 
-              if (payload === "heartbeat") {
-                (event as any).waitUntil(
-                  checkAlarms(loadAlarms(), async (message) => {
-                    await registration.showNotification(message);
-                  }),
-                );
-              }
-            });
+                if (payload === "heartbeat") {
+                  (event as any).waitUntil(
+                    checkAlarms(loadAlarms(), async (message) => {
+                      await registration.showNotification(message);
+                    }),
+                  );
+                }
+              });
+            };
+
+            if (registration?.active?.state === "activated") {
+              await registerPushHandler();
+            } else if (registration?.installing) {
+              registration.installing.addEventListener("statechange", (e) => {
+                const serviceWorker = e.target as ServiceWorker;
+                if (serviceWorker.state === "activated") registerPushHandler();
+              });
+            }
           });
       }
     });
