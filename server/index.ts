@@ -73,7 +73,7 @@ if (
 }
 // Set the keys used for encrypting the push messages.
 webPush.setVapidDetails(
-  process.env.MAIL_TO!,
+  `mailto:${process.env.MAIL_TO!}`,
   process.env.VAPID_PUBLIC_KEY!,
   process.env.VAPID_PRIVATE_KEY!,
 );
