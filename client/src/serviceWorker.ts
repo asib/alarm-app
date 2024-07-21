@@ -1,6 +1,9 @@
 import { clientsClaim } from "workbox-core";
 import { cleanupOutdatedCaches, precacheAndRoute } from "workbox-precaching";
-import { Alarm, loadAlarms } from "./App";
+import { Alarm } from "./App";
+import { get } from "idb-keyval";
+import { Selection } from "react-aria-components";
+import { CalendarDate, Time } from "@internationalized/date";
 
 declare let self: ServiceWorkerGlobalScope;
 const serverUrl = "https://server-wild-wave-7018.fly.dev";
@@ -11,13 +14,32 @@ clientsClaim();
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 
-navigator.permissions.query({ name: "notifications" }).then((perm) => {
+navigator.permissions.query({ name: "notifications" }).then(async (perm) => {
   if (perm.state !== "granted") {
     console.log("Permission not granted, listening for change");
     perm.addEventListener("change", async () => {
       console.log("Notification permission changed to", perm.state);
       await registerForPush();
     });
+  } else {
+    console.log("Permission already granted, registering for push");
+    await registerForPush();
+  }
+});
+
+console.log("Adding push event listener");
+self.addEventListener("push", (event) => {
+  const payload = (event as any).data?.text() ?? "no payload";
+  console.log(`payload: ${payload}`);
+
+  if (payload === "heartbeat") {
+    event.waitUntil(
+      loadAlarms().then((alarms) => {
+        checkAlarms(alarms, (message) =>
+          self.registration.showNotification(message, { body: "Alarm" }),
+        );
+      }),
+    );
   }
 });
 
@@ -38,35 +60,8 @@ async function registerForPush() {
     headers: {
       "Content-type": "application/json",
     },
-    body: JSON.stringify({
-      subscription: subscription,
-    }),
+    body: JSON.stringify(subscription),
   });
-
-  const registerPushHandler = async () => {
-    console.log("Adding push event listener");
-    self.registration.active!.addEventListener("push", async (event) => {
-      console.log(`payload: ${JSON.stringify(event)}`);
-      const payload = (event as any).data?.text() ?? "no payload";
-
-      if (payload === "heartbeat") {
-        (event as any).waitUntil(
-          checkAlarms(await loadAlarms(), async (message) => {
-            await self.registration.showNotification(message);
-          }),
-        );
-      }
-    });
-  };
-
-  if (self.registration?.active?.state === "activated") {
-    await registerPushHandler();
-  } else if (self.registration?.installing) {
-    self.registration.installing.addEventListener("statechange", async (e) => {
-      const serviceWorker = e.target as ServiceWorker;
-      if (serviceWorker.state === "activated") await registerPushHandler();
-    });
-  }
 }
 
 async function subscribe() {
@@ -86,11 +81,32 @@ async function subscribe() {
   });
 }
 
-async function checkAlarms(
+async function loadAlarms(): Promise<Alarm[]> {
+  return sortAlarms(
+    ((await get<Alarm[]>("alarms")) ?? []).map(
+      ({ name: name, date: date, time: time, warnings: warnings }) => ({
+        name,
+        date: new CalendarDate(date.year, date.month, date.day),
+        time: new Time(time.hour, time.minute),
+        warnings: warnings as Selection,
+      }),
+    ),
+  );
+}
+
+function sortAlarms(alarms: Alarm[]) {
+  return alarms.sort((a, b) => {
+    const dateA = new Date(a.date.toString() + "T" + a.time.toString());
+    const dateB = new Date(b.date.toString() + "T" + b.time.toString());
+    return dateB.getTime() - dateA.getTime();
+  });
+}
+
+function checkAlarms(
   alarms: Alarm[],
   showNotification: (message: string) => Promise<void>,
-) {
-  for (const alarm of alarms) {
+): Promise<void[]> {
+  const notificationPromises = alarms.map((alarm) => {
     const now = new Date();
     const alarmDateTime = new Date(
       alarm.date.year,
@@ -99,17 +115,21 @@ async function checkAlarms(
       alarm.time.hour,
       alarm.time.minute,
     );
-    console.log(`Checking alarm now:${now}, alarm:${alarmDateTime}`);
+    console.log(
+      `Checking alarm now:${now.toISOString()}, alarm:${alarmDateTime.toISOString()}`,
+    );
 
     if (now > alarmDateTime) {
-      console.log(
-        `Alarm "${alarm.name}" was supposed to go off at ${alarmDateTime.toTimeString()}, but it's already ${now.toTimeString()}`,
-      );
-      await showNotification(
+      console.log(`Alarm was supposed to go off`);
+      return showNotification(
         `"${alarm.name}" at ${alarmDateTime.toTimeString()}`,
       );
     }
-  }
+
+    return Promise.resolve();
+  });
+
+  return Promise.all(notificationPromises);
 }
 
 // This function is needed because Chrome doesn't accept a base64 encoded string
@@ -121,7 +141,7 @@ function urlBase64ToUint8Array(base64String: string) {
     .replace(/\-/g, "+")
     .replace(/_/g, "/");
 
-  const rawData = window.atob(base64);
+  const rawData = atob(base64);
   const outputArray = new Uint8Array(rawData.length);
 
   for (let i = 0; i < rawData.length; ++i) {
