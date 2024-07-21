@@ -35,9 +35,7 @@ self.addEventListener("push", (event) => {
   if (payload === "heartbeat") {
     event.waitUntil(
       loadAlarms().then((alarms) => {
-        checkAlarms(alarms, (message) =>
-          self.registration.showNotification(message, { body: "Alarm" }),
-        );
+        checkAlarms(alarms);
       }),
     );
   }
@@ -102,10 +100,7 @@ function sortAlarms(alarms: Alarm[]) {
   });
 }
 
-function checkAlarms(
-  alarms: Alarm[],
-  showNotification: (message: string) => Promise<void>,
-): Promise<void[]> {
+function checkAlarms(alarms: Alarm[]): Promise<void[]> {
   const notificationPromises = alarms.map((alarm) => {
     const now = new Date();
     const alarmDateTime = new Date(
@@ -121,8 +116,9 @@ function checkAlarms(
 
     if (now > alarmDateTime) {
       console.log(`Alarm was supposed to go off`);
-      return showNotification(
+      return self.registration.showNotification(
         `"${alarm.name}" at ${alarmDateTime.toTimeString()}`,
+        { body: "Alarm" },
       );
     }
 

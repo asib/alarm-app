@@ -135,7 +135,10 @@ function App() {
         <h1 className="text-3xl mb-3">Alarms</h1>
         <Button
           variant="secondary"
-          onPress={async () => await Notification.requestPermission()}
+          onPress={async () => {
+            console.log("Requesting permission");
+            console.log(await Notification.requestPermission());
+          }}
         >
           Subscribe
         </Button>

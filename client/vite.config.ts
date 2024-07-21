@@ -20,16 +20,16 @@ export default defineConfig({
       },
 
       manifest: {
-        name: "alarm-pwa-react",
-        short_name: "alarm-pwa-react",
-        description: "alarm-pwa-react",
-        theme_color: "#ffffff",
+        name: "Alarmy",
+        short_name: "Alarmy",
+        description: "Powerful alarms",
       },
 
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,ico}"],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
+        swDest: "serviceWorker.js",
       },
 
       devOptions: {
