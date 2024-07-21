@@ -14,6 +14,8 @@ export default defineConfig({
       srcDir: "src",
       filename: "serviceWorker.ts",
 
+      outDir: "public",
+
       pwaAssets: {
         disabled: false,
         config: true,

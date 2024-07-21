@@ -49,7 +49,7 @@ const allWarnings = [
   "72h",
 ];
 
-export interface Alarm {
+interface Alarm {
   name: string;
   date: DateValue;
   time: TimeValue;
@@ -241,7 +241,7 @@ function App() {
               <div className="relative w-full">
                 <DialogTrigger>
                   <Button variant="icon" className="absolute top-0 right-0 p-0">
-                    <X size="1rem" />
+                    <X className="w-[1rem] h-[1rem]" />
                   </Button>
                   {(close) => (
                     <Dialog>

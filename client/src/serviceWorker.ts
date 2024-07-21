@@ -1,9 +1,16 @@
+/// <reference lib="WebWorker" />
 import { clientsClaim } from "workbox-core";
 import { cleanupOutdatedCaches, precacheAndRoute } from "workbox-precaching";
-import { Alarm } from "./App";
 import { get } from "idb-keyval";
 import { Selection } from "react-aria-components";
 import { CalendarDate, Time } from "@internationalized/date";
+
+interface Alarm {
+  name: string;
+  date: CalendarDate;
+  time: Time;
+  warnings: Selection;
+}
 
 declare let self: ServiceWorkerGlobalScope;
 const serverUrl = "https://server-wild-wave-7018.fly.dev";
