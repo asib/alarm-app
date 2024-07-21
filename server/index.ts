@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 
-const db = new Database(":memory:");
+const db = new Database(":memory:", { strict: true });
 db.exec(`
   CREATE TABLE IF NOT EXISTS push_subscriptions (
       id INTEGER PRIMARY KEY,
@@ -30,36 +30,26 @@ const server = Bun.serve({
     } else if (req.method === "POST" && path === "/register") {
       const subscription = await req.text();
 
-      db.run("INSERT INTO push_subscriptions (subscription) VALUES (?);", [
-        subscription,
-      ]);
+      const result = db
+        .query<
+          { MATCHING_ROWS: number },
+          [string]
+        >("SELECT COUNT(*) AS MATCHING_ROWS FROM push_subscriptions WHERE subscription = ?;")
+        .get(subscription);
+
+      if ((result?.MATCHING_ROWS ?? 0) === 0) {
+        db.run("INSERT INTO push_subscriptions (subscription) VALUES (?);", [
+          subscription,
+        ]);
+      } else {
+        console.log("Subscription already exists, skipping");
+      }
 
       return resp("", { status: 201 });
     } else {
       // 404s
       return resp("Page not found", { status: 200 });
     }
-
-    // if (req.method === "POST" && path === "sendNotification") {
-    //   const data = await req.json()
-    //   const subscription = data.subscription;
-    //   const payload = null;
-    //   const options = {
-    //     TTL: data.ttl,
-    //   };
-
-    //   setTimeout(function () {
-    //     webPush
-    //       .sendNotification(subscription, payload, options)
-    //       .then(function () {
-    //         return new Response("", {status: 201});
-    //       })
-    //       .catch(function (error) {
-    //         console.log(error);
-    //         return new Response("", {status: 500});
-    //       });
-    //   }, data.delay * 1000);
-    // }
   },
 });
 
@@ -70,12 +60,12 @@ const server = Bun.serve({
 import webPush from "web-push";
 
 if (
-  !process.env.HOST ||
+  !process.env.MAIL_TO ||
   !process.env.VAPID_PUBLIC_KEY ||
   !process.env.VAPID_PRIVATE_KEY
 ) {
   console.log(
-    "You must set the HOST, VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY " +
+    "You must set the MAIL_TO, VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY " +
       "environment variables. You can use the following ones:",
   );
   console.log(server.url);
@@ -83,7 +73,7 @@ if (
 }
 // Set the keys used for encrypting the push messages.
 webPush.setVapidDetails(
-  process.env.HOST!,
+  process.env.MAIL_TO!,
   process.env.VAPID_PUBLIC_KEY!,
   process.env.VAPID_PRIVATE_KEY!,
 );
@@ -95,8 +85,8 @@ setInterval(
     )
       .all()
       .forEach(({ subscription: subscriptionJson }) => {
-        const { subscription } = JSON.parse(subscriptionJson);
-        console.log(`sending heartbeat to ${subscriptionJson}}`);
+        const subscription = JSON.parse(subscriptionJson);
+        console.log(`sending heartbeat to ${JSON.stringify(subscription)}`);
         webPush
           .sendNotification(subscription, "heartbeat")
           .then((v) => {

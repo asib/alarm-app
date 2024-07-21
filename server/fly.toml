@@ -9,6 +9,7 @@ primary_region = 'mad'
 [env]
 VAPID_PUBLIC_KEY = "BLCD3wwwl5MrLs-CqSaUtO1tiEidejuW4GOSP0Vh4cWCTtLqCCGyYhfNguic7cnrRtITS8ZlkstuQqLlljEpNbE"
 HOST = "https://alarm-pwa-server.fly.dev"
+MAIL_TO = "jacob+alarm-pwa-server@dfenton.xyz"
 PUSH_INTERVAL_SECONDS = "10"
 PORT = "3000"
 
