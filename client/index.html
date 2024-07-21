@@ -8,9 +8,9 @@
   <script>
     if ('serviceWorker' in navigator) {
       console.log("Service worker is supported by browser.")
-      window.addEventListener('load', () => {
+      window.addEventListener('load', async () => {
         console.log("registering service worker.")
-        navigator.serviceWorker.register('/serviceWorker.js', {
+        await navigator.serviceWorker.register('/serviceWorker.js', {
           scope: '/'
         })
       })
